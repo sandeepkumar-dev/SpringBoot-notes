@@ -52,7 +52,7 @@
 
 ---
 
-## 2. Core REST Principles (Constraints)
+## 2. Core REST Principles (Constraints-> means Rule or principles)
 
 REST has **6 guiding constraints**:
 
