@@ -653,6 +653,84 @@ void saveUserWithProfile() {
 
 ## 15. FetchType — EAGER vs LAZY
 
+These two fetch types control **when** Hibernate loads related/associated data from the database.
+
+---
+
+### 🔵 EAGER (Fetch Immediately)
+
+> **EAGER loading means: "Load the related data right now, along with the parent entity — whether I need it or not."**
+
+When you fetch a parent entity, Hibernate **immediately fires additional SQL queries** to also load all associated child entities in the same operation.
+
+```java
+@OneToMany(fetch = FetchType.EAGER)
+private List<Comment> comments;
+
+// When you run this:
+Post post = postRepository.findById(1L).orElseThrow();
+
+// Hibernate fires BOTH queries immediately:
+// SELECT * FROM post WHERE id = 1;
+// SELECT * FROM comment WHERE post_id = 1;  ← fired automatically
+```
+
+---
+
+### 🟠 LAZY (Fetch On Demand)
+
+> **LAZY loading means: "Don't load the related data yet — wait until I actually ask for it."**
+
+When you fetch a parent entity, Hibernate **only loads the parent**. The child collection is replaced by a **proxy object** (a placeholder). The actual data is fetched from DB only when you explicitly access the collection.
+
+```java
+@OneToMany(fetch = FetchType.LAZY)
+private List<Comment> comments;
+
+// When you run this:
+Post post = postRepository.findById(1L).orElseThrow();
+// Hibernate fires only:
+// SELECT * FROM post WHERE id = 1;
+// comments is a PROXY here — not yet loaded
+
+// Only when you do THIS does Hibernate hit the DB:
+post.getComments();  // SELECT * FROM comment WHERE post_id = 1
+```
+
+---
+
+### ⚠️ The LAZY Trap — `LazyInitializationException`
+
+When the Hibernate **session closes** before you access the lazy collection, the proxy can no longer fetch the data — and throws an exception.
+
+```java
+// ❌ Without @Transactional — session closes after findById()
+Post post = postRepository.findById(1L).orElseThrow();
+post.getComments();  // 💥 LazyInitializationException: no Session
+
+// ✅ With @Transactional — session stays open for the whole method
+@Transactional
+public void readComments() {
+    Post post = postRepository.findById(1L).orElseThrow();
+    post.getComments();  // Works perfectly
+}
+```
+
+---
+
+### Comparison Table
+
+| | EAGER | LAZY |
+|---|---|---|
+| **Meaning** | Load now, always | Load only when accessed |
+| **SQL fired** | Immediately on parent fetch | On first access of collection |
+| **Memory usage** | High (loads everything upfront) | Low (loads only what's needed) |
+| **Risk** | Performance issues on large data | `LazyInitializationException` |
+| **Fix for risk** | Avoid on large collections | Use `@Transactional` |
+| **Best suited for** | Small / dev / POC apps | Production / large datasets |
+
+
+
 | | EAGER | LAZY |
 |---|---|---|
 | **When loaded** | Immediately with parent entity | Only when explicitly accessed |
